@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>10 Question Quiz</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .question { margin-bottom: 20px; }
+    .result { font-weight: bold; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h2>General Knowledge Quiz</h2>
+
+  <div class="question">
+    <p>1. What is the capital of France?</p>
+    <label><input type="radio" name="q1" value="Paris"> Paris</label><br>
+    <label><input type="radio" name="q1" value="London"> London</label><br>
+    <label><input type="radio" name="q1" value="Berlin"> Berlin</label>
+    <div id="a1" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>2. What is 5 × 6?</p>
+    <label><input type="radio" name="q2" value="30"> 30</label><br>
+    <label><input type="radio" name="q2" value="25"> 25</label><br>
+    <label><input type="radio" name="q2" value="35"> 35</label>
+    <div id="a2" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>3. Who wrote "Romeo and Juliet"?</p>
+    <label><input type="radio" name="q3" value="Shakespeare"> William Shakespeare</label><br>
+    <label><input type="radio" name="q3" value="Dickens"> Charles Dickens</label><br>
+    <label><input type="radio" name="q3" value="Homer"> Homer</label>
+    <div id="a3" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>4. What planet is known as the Red Planet?</p>
+    <label><input type="radio" name="q4" value="Mars"> Mars</label><br>
+    <label><input type="radio" name="q4" value="Venus"> Venus</label><br>
+    <label><input type="radio" name="q4" value="Jupiter"> Jupiter</label>
+    <div id="a4" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>5. What is the largest ocean on Earth?</p>
+    <label><input type="radio" name="q5" value="Pacific"> Pacific Ocean</label><br>
+    <label><input type="radio" name="q5" value="Atlantic"> Atlantic Ocean</label><br>
+    <label><input type="radio" name="q5" value="Indian"> Indian Ocean</label>
+    <div id="a5" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>6. What gas do plants absorb from the atmosphere?</p>
+    <label><input type="radio" name="q6" value="CO2"> Carbon Dioxide</label><br>
+    <label><input type="radio" name="q6" value="O2"> Oxygen</label><br>
+    <label><input type="radio" name="q6" value="N2"> Nitrogen</label>
+    <div id="a6" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>7. Who painted the Mona Lisa?</p>
+    <label><input type="radio" name="q7" value="Da Vinci"> Leonardo da Vinci</label><br>
+    <label><input type="radio" name="q7" value="Picasso"> Pablo Picasso</label><br>
+    <label><input type="radio" name="q7" value="Van Gogh"> Vincent van Gogh</label>
+    <div id="a7" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>8. What is the smallest prime number?</p>
+    <label><input type="radio" name="q8" value="2"> 2</label><br>
+    <label><input type="radio" name="q8" value="3"> 3</label><br>
+    <label><input type="radio" name="q8" value="5"> 5</label>
+    <div id="a8" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>9. Which country is famous for the Great Wall?</p>
+    <label><input type="radio" name="q9" value="China"> China</label><br>
+    <label><input type="radio" name="q9" value="Japan"> Japan</label><br>
+    <label><input type="radio" name="q9" value="India"> India</label>
+    <div id="a9" class="result"></div>
+  </div>
+
+  <div class="question">
+    <p>10. What is the chemical symbol for water?</p>
+    <label><input type="radio" name="q10" value="H2O"> H₂O</label><br>
+    <label><input type="radio" name="q10" value="O2"> O₂</label><br>
+    <label><input type="radio" name="q10" value="CO2"> CO₂</label>
+    <div id="a10" class="result"></div>
+  </div>
+
+  <button onclick="checkAnswers()">Submit Answers</button>
+
+  <script>
+    const answers = {
+      q1: "Paris",
+      q2: "30",
+      q3: "Shakespeare",
+      q4: "Mars",
+      q5: "Pacific",
+      q6: "CO2",
+      q7: "Da Vinci",
+      q8: "2",
+      q9: "China",
+      q10: "H2O"
+    };
+
+    function checkAnswers() {
+      let score = 0;
+      for (let i = 1; i <= 10; i++) {
+        let radios = document.getElementsByName("q" + i);
+        let selected = null;
+        for (let r of radios) {
+          if (r.checked) selected = r.value;
+        }
+        if (selected === answers["q" + i]) {
+          document.getElementById("a" + i).innerText = "✅ Correct!";
+          score++;
+        } else {
+          document.getElementById("a" + i).innerText = "❌ Wrong. Correct answer: " + answers["q" + i];
+        }
+      }
+      alert("You scored " + score + "/10");
+    }
+  </script>
+</body>
+</html>

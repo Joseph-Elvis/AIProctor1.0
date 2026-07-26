@@ -1,0 +1,348 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+/* ── Shared Layout ─────────────────────────────── */
+.page-center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.card {
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+}
+
+.card-wide {
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 1100px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+}
+
+/* ── Header ────────────────────────────────────── */
+.logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo h1 {
+  font-size: 26px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: -0.5px;
+}
+
+.logo p {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* ── Form Elements ─────────────────────────────── */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+/* ── Buttons ───────────────────────────────────── */
+.btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #38bdf8;
+  color: #0f172a;
+}
+
+.btn-primary:hover { background: #7dd3fc; }
+.btn-primary:disabled {
+  background: #334155;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  padding: 8px 16px;
+  width: auto;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.btn-success {
+  background: #22c55e;
+  color: white;
+  padding: 8px 16px;
+  width: auto;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.btn-sm {
+  padding: 7px 14px;
+  width: auto;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+/* ── Messages ──────────────────────────────────── */
+.msg {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+.msg-success {
+  background: #064e3b;
+  color: #6ee7b7;
+  border: 1px solid #065f46;
+}
+
+.msg-error {
+  background: #450a0a;
+  color: #fca5a5;
+  border: 1px solid #7f1d1d;
+}
+
+.msg-info {
+  background: #1e3a5f;
+  color: #7dd3fc;
+  border: 1px solid #1d4ed8;
+}
+
+/* ── Role Tabs ─────────────────────────────────── */
+.role-tabs {
+  display: flex;
+  background: #0f172a;
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 28px;
+  gap: 4px;
+}
+
+.role-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.role-tab.active {
+  background: #38bdf8;
+  color: #0f172a;
+}
+
+/* ── Status Badge ──────────────────────────────── */
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge-pending  { background: #1e3a5f; color: #7dd3fc; }
+.badge-approved { background: #064e3b; color: #6ee7b7; }
+.badge-rejected { background: #450a0a; color: #fca5a5; }
+.badge-in_exam  { background: #451a03; color: #fcd34d; }
+.badge-flagged  { background: #450a0a; color: #fca5a5; }
+.badge-completed{ background: #1e3a5f; color: #a78bfa; }
+
+/* ── Table ─────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 24px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  border-bottom: 1px solid #334155;
+}
+
+td {
+  padding: 14px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid #1e293b;
+  vertical-align: middle;
+}
+
+tr:hover td { background: #1a2744; }
+
+/* ── Passport Preview ──────────────────────────── */
+.passport-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #38bdf8;
+}
+
+/* ── Stats Row ─────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: #0f172a;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.stat-card .number {
+  font-size: 32px;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.stat-card .label {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Nav ───────────────────────────────────────── */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #334155;
+}
+
+.nav h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+/* ── Photo Upload ──────────────────────────────── */
+.photo-upload {
+  border: 2px dashed #334155;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.photo-upload:hover { border-color: #38bdf8; }
+
+.photo-upload img {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 10px auto;
+  display: block;
+  border: 3px solid #38bdf8;
+}
+
+.photo-upload p {
+  color: #64748b;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* ── Link ──────────────────────────────────────── */
+.link-text {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.link-text a {
+  color: #38bdf8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #334155;
+  margin: 24px 0;
+}
+
+/* ── Score ─────────────────────────────────────── */
+.score-high     { color: #22c55e; font-weight: 700; }
+.score-moderate { color: #eab308; font-weight: 700; }
+.score-flagged  { color: #f97316; font-weight: 700; }
+.score-fail     { color: #ef4444; font-weight: 700; }

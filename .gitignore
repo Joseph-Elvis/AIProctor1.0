@@ -1,0 +1,8 @@
+aiproctor_env/
+venv/
+env/
+__pycache__/
+*.pyc
+*.zip
+*.dll
+*.pyd
