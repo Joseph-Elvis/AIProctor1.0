@@ -37,7 +37,7 @@ VisionRunningMode    = mp.tasks.vision.RunningMode
 options = FaceLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=MODEL_PATH),
     running_mode=VisionRunningMode.IMAGE,
-    num_faces=1,
+    num_faces=5,
     min_face_detection_confidence=0.5,
     min_face_presence_confidence=0.5,
     min_tracking_confidence=0.5,
@@ -65,6 +65,9 @@ SUSPICIOUS_CLASSES = {
     73: "book",
     63: "laptop",
     76: "scissors",
+    66: "keyboard",
+    64: "mouse",
+    65: "remote",
 }
 PERSON_CLASS_ID = 0
 
@@ -91,9 +94,10 @@ DEVIATION_THRESHOLD  = 0.45   # composite score above this = suspicious
 
 # ── Persistence Counters ──────────────────────────────────────────────────────
 frame_counters = {
-    "LOOKING LEFT":  0,
-    "LOOKING RIGHT": 0,
-    "NO FACE":       0,
+    "LOOKING LEFT":   0,
+    "LOOKING RIGHT":  0,
+    "NO FACE":        0,
+    "MULTIPLE FACES": 0,
 }
 
 # ── Alert Cooldown ────────────────────────────────────────────────────────────
@@ -181,28 +185,32 @@ def get_gaze_eccentricity(landmarks):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-def classify_behaviour(yaw, pitch, gaze_ecc, gaze_dir, face_detected):
+def compute_gaze_label(yaw, gaze_ecc, gaze_dir):
     """
-    Classifies candidate behaviour using a composite deviation score
-    (head yaw + gaze eccentricity), with persistence filtering.
-    Only fires after suspicious behaviour is sustained long enough.
+    Decides FOCUSED / LOOKING LEFT / LOOKING RIGHT from the composite
+    yaw + gaze-eccentricity deviation score. Assumes a face is present
+    and already identity-verified — face-count/identity is decided
+    separately, upstream of this.
+    """
+    yaw_norm  = min(abs(yaw) / YAW_NORM_MAX, 1.0)
+    gaze_norm = min(gaze_ecc / GAZE_NORM_MAX, 1.0)
+    composite = (YAW_WEIGHT * yaw_norm) + (GAZE_WEIGHT * gaze_norm)
+
+    if composite >= DEVIATION_THRESHOLD:
+        # Direction: prefer head yaw when it's meaningfully non-zero,
+        # fall back to gaze direction for eyes-only deviation.
+        direction_signal = yaw if abs(yaw) > 5 else (gaze_dir * 90)
+        return "LOOKING LEFT" if direction_signal < 0 else "LOOKING RIGHT"
+    return "FOCUSED"
+
+
+def classify_behaviour(raw):
+    """
+    Applies persistence filtering to an already-decided raw label
+    (from face-count/identity checks or compute_gaze_label). Only
+    fires after the behaviour is sustained long enough.
     """
     global frame_counters
-
-    if not face_detected:
-        raw = "NO FACE"
-    else:
-        yaw_norm  = min(abs(yaw) / YAW_NORM_MAX, 1.0)
-        gaze_norm = min(gaze_ecc / GAZE_NORM_MAX, 1.0)
-        composite = (YAW_WEIGHT * yaw_norm) + (GAZE_WEIGHT * gaze_norm)
-
-        if composite >= DEVIATION_THRESHOLD:
-            # Direction: prefer head yaw when it's meaningfully non-zero,
-            # fall back to gaze direction for eyes-only deviation.
-            direction_signal = yaw if abs(yaw) > 5 else (gaze_dir * 90)
-            raw = "LOOKING LEFT" if direction_signal < 0 else "LOOKING RIGHT"
-        else:
-            raw = "FOCUSED"
 
     for key in frame_counters:
         if key == raw:
@@ -211,15 +219,17 @@ def classify_behaviour(yaw, pitch, gaze_ecc, gaze_dir, face_detected):
             frame_counters[key] = 0
 
     required = {
-        "NO FACE":       NO_FACE_FRAMES_REQUIRED,
-        "LOOKING LEFT":  SUSPICIOUS_FRAMES_REQUIRED,
-        "LOOKING RIGHT": SUSPICIOUS_FRAMES_REQUIRED,
+        "NO FACE":        NO_FACE_FRAMES_REQUIRED,
+        "LOOKING LEFT":   SUSPICIOUS_FRAMES_REQUIRED,
+        "LOOKING RIGHT":  SUSPICIOUS_FRAMES_REQUIRED,
+        "MULTIPLE FACES": SUSPICIOUS_FRAMES_REQUIRED,
     }
 
     if raw != "FOCUSED" and frame_counters[raw] >= required.get(raw, 15):
         return raw, True
 
     return raw, False
+
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -363,37 +373,44 @@ def main():
                             0.6, (0, 0, 255), 2)
             detected_items.append("unauthorized person")
 
-        # ── 3. MediaPipe Face Detection & Head Pose ───────────────────────────
+        # ── 3. MediaPipe: face count + Behavioural Analysis ─────────────────────
         behaviour_label = "NO FACE"
         behaviour_alert = False
-        face_detected   = False
 
         mp_image     = mp.Image(
             image_format=mp.ImageFormat.SRGB,
             data=rgb_frame
         )
         mesh_results = face_landmarker.detect(mp_image)
+        n_faces = (
+            len(mesh_results.face_landmarks)
+            if mesh_results.face_landmarks else 0
+        )
 
-        if mesh_results.face_landmarks:
-            face_detected = True
-            landmarks     = mesh_results.face_landmarks[0]
-            pose          = get_head_pose(landmarks, frame_w, frame_h)
+        if n_faces > 1:
+            raw = "MULTIPLE FACES"
+
+        elif n_faces == 0:
+            raw = "NO FACE"
+
+        else:
+            landmarks = mesh_results.face_landmarks[0]
+            pose      = get_head_pose(landmarks, frame_w, frame_h)
             gaze_ecc, gaze_dir = get_gaze_eccentricity(landmarks)
 
             if pose:
                 yaw, pitch, roll = pose
-                behaviour_label, behaviour_alert = classify_behaviour(
-                    yaw, pitch, gaze_ecc, gaze_dir, face_detected
-                )
+                raw = compute_gaze_label(yaw, gaze_ecc, gaze_dir)
                 cv2.putText(frame,
                             f"Yaw:{yaw:+.1f}  Pitch:{pitch:+.1f}  "
                             f"Roll:{roll:+.1f}  Gaze:{gaze_ecc:.2f}",
                             (10, frame_h - 12),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.48, (200, 200, 200), 1)
-        else:
-            behaviour_label, behaviour_alert = classify_behaviour(
-                0, 0, 0.0, 0.0, face_detected
-            )
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.48,
+                            (200, 200, 200), 1)
+            else:
+                raw = "FOCUSED"
+
+        behaviour_label, behaviour_alert = classify_behaviour(raw)
 
         # ── 4. Combine Alerts ─────────────────────────────────────────────────
         object_alert = len(detected_items) > 0

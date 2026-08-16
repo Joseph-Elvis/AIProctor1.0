@@ -6,7 +6,7 @@ import requests
 import cv2
 import numpy as np
 import face_recognition
-from datetime import datetime
+from datetime import datetime, timezone
 import queue
 import logging
 import traceback
@@ -72,6 +72,15 @@ GAZE_NORM_MAX        = 0.5    # gaze eccentricity treated as "full" deviation
 YAW_WEIGHT           = 0.6
 GAZE_WEIGHT          = 0.4
 DEVIATION_THRESHOLD  = 0.45   # composite score above this = suspicious
+
+# ── Persistence Thresholds ─────────────────────────────────────────────────
+# Time-based (wall-clock seconds), not frame-count-based — CPU-only
+# inference has variable/low FPS, so a frame-count threshold made the
+# actual real-world delay unpredictable and unreliable. Shared between
+# VisionEngineThread (which tracks elapsed time) and ExamWindow (which
+# turns duration into an escalating violation weight).
+GAZE_PERSIST_SECONDS    = 5.0   # looking-away/no-face/multiple-faces
+BLOCKED_PERSIST_SECONDS = 3.0   # camera blocked — deliberate, flag faster
 
 
 def get_gaze_eccentricity(landmarks):
@@ -237,21 +246,44 @@ class GlobalKeyFilter(QObject):
 # Uses shared camera frames via callback subscription
 # ═════════════════════════════════════════════════════════════════════════════
 class VisionEngineThread(QThread):
-    alert_signal = pyqtSignal(str, list)
-    ready_signal = pyqtSignal()
+    # duration_cs = how many CENTISECONDS (1/100s) this exact behaviour
+    # has now continuously persisted, measured in wall-clock time (0 for
+    # one-off detections like objects/persons that aren't tracked this
+    # way). This is what lets the UI escalate severity based on actual
+    # sustained duration, instead of how many times the (cooldown-gated)
+    # alert happened to re-fire.
+    alert_signal  = pyqtSignal(str, list, int)
+    ready_signal  = pyqtSignal()
+    # Fires every frame with the current raw classification (FOCUSED,
+    # LOOKING LEFT/RIGHT, NO FACE, MULTIPLE FACES) — independent of the
+    # persistence/cooldown gating that alert_signal uses, so the UI can
+    # show live gaze movement instead of only delayed violations.
+    status_signal = pyqtSignal(str)
 
     def __init__(self, candidate_id, session_id, station_id):
         super().__init__()
-        self.candidate_id    = candidate_id
-        self.session_id      = session_id
-        self.station_id      = station_id
-        self.running         = False
-        self.models_ready    = False
-        self.last_alert_time = {}
-        self.COOLDOWN        = 5
-        self.model           = None
-        self.face_landmarker = None
-        self.frame_queue     = queue.Queue(maxsize=2)
+        self.candidate_id      = candidate_id
+        self.session_id        = session_id
+        self.station_id        = station_id
+        self.running           = False
+        self.models_ready      = False
+        self.last_alert_time   = {}
+        self.COOLDOWN          = 5
+        self.model             = None
+        self.face_landmarker   = None
+        self.frame_queue       = queue.Queue(maxsize=2)
+
+        # Dedicated looking-away tracker (separate from the generic
+        # per-key dict used for NO FACE/MULTIPLE FACES/CAMERA BLOCKED)
+        # because gaze classification is the noisiest signal — it sits
+        # right near a threshold and can flicker frame-to-frame between
+        # LOOKING LEFT/RIGHT/FOCUSED even during a genuine sustained
+        # look-away. A brief single-frame blip back to FOCUSED (or a
+        # flip between LEFT/RIGHT) should NOT reset the whole timer.
+        self._gaze_away_start    = None   # when the current away-run began
+        self._gaze_away_last_seen = None  # last frame classified as away
+        self._gaze_away_evidence = None
+        self._GAZE_GLITCH_GRACE  = 1.0    # seconds of tolerance
 
     def receive_frame(self, frame):
         """Called by CameraManager with each new frame."""
@@ -287,7 +319,7 @@ class VisionEngineThread(QThread):
         options = FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=MODEL_PATH),
             running_mode=VisionRunningMode.IMAGE,
-            num_faces=1,
+            num_faces=5,
             min_face_detection_confidence=0.5,
             min_face_presence_confidence=0.5,
             min_tracking_confidence=0.5,
@@ -299,8 +331,9 @@ class VisionEngineThread(QThread):
         print("[MONITOR] All models ready")
         self.ready_signal.emit()
 
-    def send_alert(self, violation_type, objects, frame=None):
-        now       = datetime.utcnow().timestamp()
+    def send_alert(self, violation_type, objects, frame=None,
+                   duration_cs=0):
+        now       = datetime.now(timezone.utc).timestamp()
         last_sent = self.last_alert_time.get(violation_type, 0)
         if now - last_sent < self.COOLDOWN:
             return
@@ -312,7 +345,7 @@ class VisionEngineThread(QThread):
             "station_id":     self.station_id,
             "violation_type": violation_type,
             "objects":        objects,
-            "timestamp":      datetime.utcnow().isoformat()
+            "timestamp":      datetime.now(timezone.utc).isoformat()
         }
 
         # Encode evidence frame as base64 JPEG
@@ -329,7 +362,7 @@ class VisionEngineThread(QThread):
                 )
                 cv2.putText(
                     annotated,
-                    datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     (10, 60),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (255, 255, 255), 1
@@ -359,7 +392,7 @@ class VisionEngineThread(QThread):
         except Exception as e:
             print(f"[API ERROR] {e}")
 
-        self.alert_signal.emit(violation_type, objects)
+        self.alert_signal.emit(violation_type, objects, duration_cs)
 
     def run(self):
         import mediapipe as mp
@@ -381,21 +414,35 @@ class VisionEngineThread(QThread):
         ], dtype=np.float64)
 
         LANDMARK_IDS   = [1, 152, 263, 33, 287, 57]
-        SUSPICIOUS     = {67: "cell phone", 73: "book", 63: "laptop"}
+        SUSPICIOUS     = {
+            67: "cell phone",
+            73: "book",
+            63: "laptop",
+            66: "keyboard",
+            64: "mouse",
+            65: "remote",
+        }
         PERSON_ID      = 0
         YAW_THRESH     = 20
-        PERSIST        = 30
-        frame_counters = {
-            "LOOKING LEFT": 0,
-            "LOOKING RIGHT": 0,
-            "NO FACE": 0
+        # Time-based, not frame-count-based: CPU-only inference has
+        # variable/low FPS, so counting frames made the actual delay
+        # unpredictable. Tracking wall-clock seconds means "5 seconds"
+        # means 5 seconds regardless of how fast frames arrive.
+        REQUIRED_SECONDS         = GAZE_PERSIST_SECONDS
+        REQUIRED_SECONDS_BLOCKED = BLOCKED_PERSIST_SECONDS
+
+        # When each behaviour was first seen (None = not currently active)
+        state_start_time = {
+            "NO FACE":         None,
+            "MULTIPLE FACES":  None,
+            "CAMERA BLOCKED":  None,
         }
-        # Store the frame that first triggered each behaviour
-        trigger_frames = {
-            "LOOKING LEFT": None,
-            "LOOKING RIGHT": None,
-            "NO FACE": None
-        }
+        # Whether we've already fired the "sustained" alert for the
+        # CURRENT continuous run of this behaviour (so we alert once
+        # per continuous occurrence, not once per cooldown window).
+        state_fired = {k: False for k in state_start_time}
+        # Frame captured at the moment each behaviour started
+        trigger_frames = {k: None for k in state_start_time}
 
         while self.running:
             try:
@@ -406,7 +453,8 @@ class VisionEngineThread(QThread):
             try:
                 self._process_frame(
                     frame, FACE_3D, LANDMARK_IDS, SUSPICIOUS, PERSON_ID,
-                    YAW_THRESH, PERSIST, frame_counters, trigger_frames, mp
+                    YAW_THRESH, REQUIRED_SECONDS, REQUIRED_SECONDS_BLOCKED,
+                    state_start_time, state_fired, trigger_frames, mp, time
                 )
             except Exception as e:
                 # A single bad frame (landmark edge case, solvePnP
@@ -423,13 +471,34 @@ class VisionEngineThread(QThread):
 
     def _process_frame(
         self, frame, FACE_3D, LANDMARK_IDS, SUSPICIOUS, PERSON_ID,
-        YAW_THRESH, PERSIST, frame_counters, trigger_frames, mp
+        YAW_THRESH, REQUIRED_SECONDS, REQUIRED_SECONDS_BLOCKED,
+        state_start_time, state_fired, trigger_frames, mp, time_module
     ):
         # Make a clean copy for evidence capture
         evidence_frame = frame.copy()
+        now = time_module.time()
 
         fh, fw = frame.shape[:2]
-        rgb    = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # ── Camera-blocked check (cheap, runs before any heavy model) ──
+        # A covered/obstructed lens produces a near-uniform, often dark
+        # frame. Checking this first also saves YOLO/MediaPipe work on
+        # a frame that has nothing meaningful to detect anyway.
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        brightness = float(np.mean(gray))
+        sharpness  = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+        if brightness < 15 or sharpness < 8:
+            raw = "CAMERA BLOCKED"
+            self.status_signal.emit(raw)
+            self._handle_gaze_state(None, now, evidence_frame)
+            self._update_state_and_maybe_alert(
+                raw, now, REQUIRED_SECONDS_BLOCKED, evidence_frame,
+                state_start_time, state_fired, trigger_frames, []
+            )
+            return
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # ── YOLO detection ────────────────────────────────────────────
         results  = self.model(frame, verbose=False)[0]
@@ -460,13 +529,22 @@ class VisionEngineThread(QThread):
                 evidence_frame
             )
 
-        # ── MediaPipe behaviour detection ─────────────────────────────
+        # ── MediaPipe: face count + behaviour detection ────────────────
+        # One model call gives us face count (for MULTIPLE FACES / NO
+        # FACE) and, for a single face, the landmarks used for gaze.
         mp_img = mp.Image(
             image_format=mp.ImageFormat.SRGB, data=rgb
         )
-        mesh   = self.face_landmarker.detect(mp_img)
+        mesh = self.face_landmarker.detect(mp_img)
+        n_faces = len(mesh.face_landmarks) if mesh.face_landmarks else 0
 
-        if mesh.face_landmarks:
+        if n_faces > 1:
+            raw = "MULTIPLE FACES"
+
+        elif n_faces == 0:
+            raw = "NO FACE"
+
+        else:
             lms     = mesh.face_landmarks[0]
             img_pts = np.array([
                 [lms[i].x * fw, lms[i].y * fh]
@@ -509,25 +587,133 @@ class VisionEngineThread(QThread):
                     raw = "FOCUSED"
             else:
                 raw = "FOCUSED"
+
+        # ── Live status: emitted every frame, regardless of persistence
+        # or alert cooldown, so the UI can reflect gaze movement in
+        # real time rather than only once a violation is confirmed.
+        self.status_signal.emit(raw)
+
+        if raw in ("LOOKING LEFT", "LOOKING RIGHT"):
+            # Gaze is the noisiest signal (right near a threshold, can
+            # flicker frame-to-frame) — uses the dedicated tracker with
+            # glitch tolerance instead of the generic one.
+            self._handle_gaze_state(raw, now, evidence_frame)
+            # Still clears the generic NO FACE/MULTIPLE FACES/CAMERA
+            # BLOCKED timers, since we're clearly in none of those.
+            self._update_state_and_maybe_alert(
+                "__NONE__", now, REQUIRED_SECONDS, evidence_frame,
+                state_start_time, state_fired, trigger_frames, []
+            )
         else:
-            raw = "NO FACE"
+            # FOCUSED, NO FACE, or MULTIPLE FACES this frame — also
+            # clears any in-progress gaze-away run once the glitch
+            # grace window has genuinely elapsed.
+            self._handle_gaze_state(None, now, evidence_frame)
+            self._update_state_and_maybe_alert(
+                raw, now, REQUIRED_SECONDS, evidence_frame,
+                state_start_time, state_fired, trigger_frames, []
+            )
 
-        # ── Persistence counter with frame capture ────────────────────
-        for key in frame_counters:
-            if key == raw:
-                frame_counters[key] += 1
-                # Store the first frame that triggered this behaviour
-                if frame_counters[key] == 1:
-                    trigger_frames[key] = evidence_frame.copy()
-            else:
-                frame_counters[key] = 0
-                trigger_frames[key] = None
+    def _update_state_and_maybe_alert(
+        self, raw, now, required_seconds, evidence_frame,
+        state_start_time, state_fired, trigger_frames, objects
+    ):
+        """
+        Wall-clock version of the persistence check: a behaviour must
+        continuously hold for `required_seconds` before it's flagged as
+        a violation — measured in real time, not frame count, so it's
+        accurate regardless of the pipeline's actual FPS.
+        """
+        for key in state_start_time:
+            if key != raw:
+                # Behaviour interrupted — reset its timer entirely.
+                state_start_time[key] = None
+                state_fired[key]      = False
+                trigger_frames[key]   = None
 
-        # Fire alert when persistence threshold reached
-        # Use the stored trigger frame as evidence
-        if raw != "FOCUSED" and frame_counters.get(raw, 0) >= PERSIST:
-            stored_frame = trigger_frames.get(raw) or evidence_frame
-            self.send_alert(raw, [], stored_frame)
+        if raw == "FOCUSED" or raw not in state_start_time:
+            return
+
+        if state_start_time[raw] is None:
+            # Just started — start the clock and grab evidence now.
+            state_start_time[raw] = now
+            trigger_frames[raw]   = evidence_frame.copy()
+            state_fired[raw]      = False
+
+        elapsed = now - state_start_time[raw]
+
+        if elapsed >= required_seconds and not state_fired[raw]:
+            # Sustained long enough — fire exactly once for this
+            # continuous occurrence (further escalation, if it keeps
+            # going, is handled by re-fires past the cooldown window).
+            state_fired[raw] = True
+            _tf = trigger_frames.get(raw)
+            stored_frame = _tf if _tf is not None else evidence_frame
+            self.send_alert(
+                raw, objects, stored_frame,
+                duration_cs=int(elapsed * 100)  # encode as centiseconds
+            )
+        elif elapsed >= required_seconds and state_fired[raw]:
+            # Already fired once for this occurrence — later re-fires
+            # (gated by send_alert's own cooldown) still carry the
+            # growing elapsed time so escalation reflects reality.
+            _tf = trigger_frames.get(raw)
+            stored_frame = _tf if _tf is not None else evidence_frame
+            self.send_alert(
+                raw, objects, stored_frame,
+                duration_cs=int(elapsed * 100)
+            )
+
+    def _handle_gaze_state(self, direction, now, evidence_frame):
+        """
+        Dedicated persistence tracker for LOOKING LEFT/RIGHT, with
+        tolerance for brief classification glitches. Unlike the
+        generic per-key tracker, this treats LEFT/RIGHT as one
+        continuous "looking away" run — flipping direction, or a
+        single noisy frame dropping back to FOCUSED, does not reset
+        progress unless the interruption lasts longer than the grace
+        window.
+
+        direction: "LOOKING LEFT" / "LOOKING RIGHT" if away this
+                   frame, otherwise None (i.e. FOCUSED this frame).
+        """
+        grace = self._GAZE_GLITCH_GRACE
+
+        if direction is not None:
+            gap_too_long = (
+                self._gaze_away_last_seen is not None
+                and (now - self._gaze_away_last_seen) > grace
+            )
+            if self._gaze_away_start is None or gap_too_long:
+                # Either a genuinely new away-run, or the previous one
+                # had a real (non-glitch) gap — start fresh.
+                self._gaze_away_start    = now
+                self._gaze_away_evidence = evidence_frame.copy()
+
+            self._gaze_away_last_seen = now
+            elapsed = now - self._gaze_away_start
+
+            if elapsed >= GAZE_PERSIST_SECONDS:
+                stored = (
+                    self._gaze_away_evidence
+                    if self._gaze_away_evidence is not None
+                    else evidence_frame
+                )
+                self.send_alert(
+                    direction, [], stored,
+                    duration_cs=int(elapsed * 100)
+                )
+        else:
+            # FOCUSED this frame — only treat as a real interruption
+            # (and reset progress) if we've been focused longer than
+            # the glitch-tolerance window.
+            if (
+                self._gaze_away_last_seen is not None
+                and (now - self._gaze_away_last_seen) > grace
+            ):
+                self._gaze_away_start     = None
+                self._gaze_away_last_seen = None
+                self._gaze_away_evidence  = None
 
     def stop(self):
         self.running = False
@@ -731,6 +917,24 @@ class ExamWindow(QMainWindow):
     # Start warning the candidate once this many violations remain.
     WARNING_REMAINING  = 3
 
+    # Base severity per violation type — added to alert_count instead
+    # of a flat 1, so more serious violations reach MAX_VIOLATIONS
+    # faster. Anything not listed (e.g. OBJECT_DETECTED: ...) uses 1.
+    VIOLATION_WEIGHT = {
+        "CAMERA BLOCKED":              3,
+        "MULTIPLE FACES":              2,
+        "UNAUTHORIZED PERSON IN FRAME": 2,
+        "NO FACE":                     1,
+        "LOOKING LEFT":                1,
+        "LOOKING RIGHT":               1,
+    }
+    # How much extra weight each consecutive repeat of the SAME
+    # violation type adds on top of its base weight, capped — this is
+    # what makes prolonged looking-away (or a prolonged blocked camera,
+    # etc.) escalate instead of costing the same as a brief one-off.
+    ESCALATION_STEP = 1
+    ESCALATION_CAP  = 3
+
     def __init__(self, student_data, vision_thread, camera_manager):
         super().__init__()
         self.student_data   = student_data
@@ -740,6 +944,11 @@ class ExamWindow(QMainWindow):
         self.time_left      = EXAM_DURATION
         self.exam_active    = True
         self.key_filter     = None
+        # Tracks consecutive repeats of the same violation type, so
+        # a prolonged behaviour (e.g. looking away for a long stretch)
+        # escalates in weight instead of costing the same each time.
+        self._last_violation_type = None
+        self._violation_streak    = 0
         self.setup_ui()
         self.setup_lockdown()
         self.start_monitoring()
@@ -806,6 +1015,14 @@ class ExamWindow(QMainWindow):
         self.monitor_label.setStyleSheet("color: #22c55e; font-size: 12px;")
         tb.addWidget(self.monitor_label)
 
+        tb.addSpacing(16)
+
+        self.live_status_label = QLabel("👁 FOCUSED")
+        self.live_status_label.setStyleSheet(
+            "color: #38bdf8; font-size: 12px; font-weight: 700;"
+        )
+        tb.addWidget(self.live_status_label)
+
         tb.addSpacing(24)
 
         self.submit_btn = QPushButton("Submit Exam")
@@ -849,9 +1066,7 @@ class ExamWindow(QMainWindow):
 
         self.flag_banner_timer = QTimer()
         self.flag_banner_timer.setSingleShot(True)
-        self.flag_banner_timer.timeout.connect(
-            lambda: self.flag_banner.setVisible(False)
-        )
+        self.flag_banner_timer.timeout.connect(self._hide_flag_banner)
 
         # ── Exam browser ──────────────────────────────────────────────────
         exam_url = self.student_data.get("exam_url")
@@ -951,6 +1166,7 @@ class ExamWindow(QMainWindow):
         """
         self.camera_manager.subscribe(self.vision_thread.receive_frame)
         self.vision_thread.alert_signal.connect(self.on_alert)
+        self.vision_thread.status_signal.connect(self.on_live_status)
         self.vision_thread.start()
         print(
             f"[EXAM] Monitoring active for "
@@ -985,29 +1201,99 @@ class ExamWindow(QMainWindow):
         s = seconds % 60
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-    def on_alert(self, violation_type, objects):
+    def on_live_status(self, raw):
+        """
+        Fires every frame with the current raw detection state, so the
+        candidate/proctor can see gaze movement, no-face, or multiple-
+        face conditions live — independent of whether they've persisted
+        long enough to become a full alert.
+        """
         try:
-            self._handle_alert(violation_type, objects)
+            display = {
+                "FOCUSED":        ("👁 FOCUSED",             "#38bdf8"),
+                "LOOKING LEFT":   ("👀 LOOKING LEFT",         "#f59e0b"),
+                "LOOKING RIGHT":  ("👀 LOOKING RIGHT",        "#f59e0b"),
+                "NO FACE":        ("🚫 NO FACE DETECTED",     "#f97316"),
+                "MULTIPLE FACES": ("⚠ MULTIPLE FACES",        "#ef4444"),
+                "CAMERA BLOCKED": ("⛔ CAMERA BLOCKED",        "#dc2626"),
+            }.get(raw, (f"👁 {raw}", "#94a3b8"))
+
+            text, colour = display
+            self.live_status_label.setText(text)
+            self.live_status_label.setStyleSheet(
+                f"color: {colour}; font-size: 12px; font-weight: 700;"
+            )
+        except Exception as e:
+            logger.error(f"[LIVE STATUS ERROR] {type(e).__name__}: {e}")
+
+    def on_alert(self, violation_type, objects, duration_cs=0):
+        try:
+            self._handle_alert(violation_type, objects, duration_cs)
         except Exception as e:
             # A slot exception here can otherwise take the whole app
-            # down silently. Log it and keep the exam running instead.
+            # down silently. Log it (to file too, in case this is
+            # running windowed with no visible console) and keep the
+            # exam running instead.
+            logger.error(
+                f"[ON_ALERT ERROR] {type(e).__name__}: {e}\n"
+                + traceback.format_exc()
+            )
             print(f"[ON_ALERT ERROR] {type(e).__name__}: {e}")
 
-    def _handle_alert(self, violation_type, objects):
-        self.alert_count += 1
+    def _handle_alert(self, violation_type, objects, duration_cs=0):
+        # Escalation is based on how long the behaviour has actually
+        # been sustained in real time (duration_cs, in centiseconds,
+        # tracked by the vision thread), NOT on how many times the
+        # alert happened to re-fire — re-firing is gated by a 5s
+        # cooldown, so a shorter sustained violation might only ever
+        # fire once and would never look escalated if we counted
+        # re-fires instead.
+        if duration_cs > 0:
+            elapsed_seconds = duration_cs / 100.0
+            required_seconds = (
+                BLOCKED_PERSIST_SECONDS if violation_type == "CAMERA BLOCKED"
+                else GAZE_PERSIST_SECONDS
+            )
+            # How many multiples of the required duration this has now
+            # run for: 1x = just crossed it (no escalation yet),
+            # 2x = held twice as long, etc.
+            multiples  = elapsed_seconds / required_seconds
+            escalation = min(
+                int(max(0, multiples - 1)) * self.ESCALATION_STEP,
+                self.ESCALATION_CAP - 1
+            )
+        else:
+            # One-off detections (objects, unauthorized person) don't
+            # track continuous duration — fall back to counting
+            # consecutive re-fires of the same type instead.
+            if violation_type == self._last_violation_type:
+                self._violation_streak += 1
+            else:
+                self._violation_streak    = 1
+                self._last_violation_type = violation_type
+            escalation = min(
+                (self._violation_streak - 1) * self.ESCALATION_STEP,
+                self.ESCALATION_CAP - 1
+            )
+
+        base_weight = self.VIOLATION_WEIGHT.get(violation_type, 1)
+        weight      = base_weight + escalation
+
+        self.alert_count += weight
         self.alert_label.setText(f"Alerts: {self.alert_count}")
         self.alert_label.setStyleSheet(
             "color: #ef4444; font-size: 12px; font-weight: 700;"
         )
 
-        remaining = self.MAX_VIOLATIONS - self.alert_count
-        detail    = f" ({', '.join(objects)})" if objects else ""
+        remaining  = self.MAX_VIOLATIONS - self.alert_count
+        detail     = f" ({', '.join(objects)})" if objects else ""
+        weight_tag = f"  [+{weight}]" if weight > 1 else ""
 
         if 0 < remaining <= self.WARNING_REMAINING:
             # Getting close to auto-termination — make it unmissable
             # and keep it on screen longer than a routine flag.
             self.flag_banner.setText(
-                f"⚠ FLAGGED — {violation_type}{detail}   ·   "
+                f"⚠ FLAGGED — {violation_type}{detail}{weight_tag}   ·   "
                 f"WARNING: {remaining} more violation"
                 f"{'s' if remaining != 1 else ''} will END your exam"
             )
@@ -1022,7 +1308,7 @@ class ExamWindow(QMainWindow):
             self.flag_banner_timer.start(6000)
         else:
             self.flag_banner.setText(
-                f"⚠ FLAGGED — {violation_type}{detail}"
+                f"⚠ FLAGGED — {violation_type}{detail}{weight_tag}"
             )
             self.flag_banner.setStyleSheet("""
                 background: #7f1d1d;
@@ -1035,7 +1321,8 @@ class ExamWindow(QMainWindow):
             self.flag_banner_timer.start(4000)
 
         print(f"[ALERT] #{self.alert_count}/{self.MAX_VIOLATIONS} "
-              f"{violation_type}")
+              f"{violation_type} (weight={weight}, "
+              f"duration_cs={duration_cs})")
 
         if self.alert_count >= self.MAX_VIOLATIONS and self.exam_active:
             print(
@@ -1072,7 +1359,7 @@ class ExamWindow(QMainWindow):
                     "station_id":     "STATION_001",
                     "violation_type": "UNAUTHORIZED EXIT ATTEMPT",
                     "objects":        [],
-                    "timestamp":      datetime.utcnow().isoformat()
+                    "timestamp":      datetime.now(timezone.utc).isoformat()
                 }, timeout=2)
             except Exception:
                 pass
@@ -1128,7 +1415,7 @@ class ExamWindow(QMainWindow):
                 "station_id":     "STATION_001",
                 "violation_type": f"EXAM_ENDED: {reason}",
                 "objects":        [],
-                "timestamp":      datetime.utcnow().isoformat()
+                "timestamp":      datetime.now(timezone.utc).isoformat()
             }, timeout=2)
         except Exception:
             pass
@@ -1181,9 +1468,9 @@ class ExamWindow(QMainWindow):
                 f"Your exam was automatically ended after "
                 f"{self.alert_count} flagged violations "
                 f"(limit: {self.MAX_VIOLATIONS}), such as looking away, "
-                f"no face detected, or unauthorized items/persons in "
-                f"view. This session has been marked for admin review — "
-                f"please speak to your supervisor."
+                f"no face detected, a blocked camera, or unauthorized "
+                f"items/persons in view. This session has been marked "
+                f"for admin review — please speak to your supervisor."
             )
         else:
             icon    = "✓"
@@ -1260,6 +1547,20 @@ class ExamWindow(QMainWindow):
         self.auto_return_timer.timeout.connect(tick_countdown)
         self.auto_return_timer.start(1000)
 
+    def _hide_flag_banner(self):
+        """
+        Called by flag_banner_timer. Guarded because this single-shot
+        timer can still be pending in Qt's event queue at the exact
+        moment the window closes (return_to_login stops it, but a
+        tiny race is possible) — without this guard it can try to
+        touch an already-deleted QLabel and crash with
+        'wrapped C/C++ object of type QLabel has been deleted'.
+        """
+        try:
+            self.flag_banner.setVisible(False)
+        except RuntimeError:
+            pass
+
     def return_to_login(self):
         """
         Closes this candidate's exam window and tells the app
@@ -1273,6 +1574,12 @@ class ExamWindow(QMainWindow):
 
         if hasattr(self, "auto_return_timer"):
             self.auto_return_timer.stop()
+        if hasattr(self, "flag_banner_timer"):
+            # Prevents a pending single-shot timer from firing after
+            # this window (and its flag_banner QLabel) is destroyed —
+            # that caused a "wrapped C/C++ object has been deleted"
+            # crash when the exam ended while a banner was showing.
+            self.flag_banner_timer.stop()
 
         self.exam_ended.emit()
         self.close()
@@ -1656,7 +1963,7 @@ class LoginWindow(QWidget):
                     "station_id":     "STATION_001",
                     "violation_type": "IMPERSONATION ATTEMPT AT LOGIN",
                     "objects":        [],
-                    "timestamp":      datetime.utcnow().isoformat()
+                    "timestamp":      datetime.now(timezone.utc).isoformat()
                 }, timeout=2)
             except Exception:
                 pass

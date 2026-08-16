@@ -10,11 +10,13 @@ function calcScore(alerts) {
   let score = 100
   alerts.forEach(a => {
     const type = (a.violation_type || '').toUpperCase()
-    if      (type.includes('IMPERSONATION'))    score -= 20
-    else if (type.includes('UNAUTHORIZED'))     score -= 15
-    else if (type.includes('OBJECT_DETECTED'))  score -= 10
-    else if (type.includes('LOOKING'))          score -= 5
-    else if (type.includes('NO FACE'))          score -= 5
+    if      (type.includes('CAMERA BLOCKED'))    score -= 20
+    else if (type.includes('IMPERSONATION'))     score -= 20
+    else if (type.includes('MULTIPLE FACES'))    score -= 15
+    else if (type.includes('UNAUTHORIZED'))      score -= 15
+    else if (type.includes('OBJECT_DETECTED'))   score -= 10
+    else if (type.includes('LOOKING'))           score -= 5
+    else if (type.includes('NO FACE'))           score -= 5
   })
   return Math.max(0, score)
 }
@@ -35,9 +37,13 @@ function scoreLabel(score) {
 
 function violationColour(type) {
   const t = (type || '').toUpperCase()
-  if (t.includes('IMPERSONATION'))  return '#ef4444'
-  if (t.includes('UNAUTHORIZED'))   return '#f97316'
+  if (t.includes('CAMERA BLOCKED'))  return '#dc2626'
+  if (t.includes('MULTIPLE FACES'))  return '#ef4444'
+  if (t.includes('IMPERSONATION'))   return '#ef4444'
+  if (t.includes('UNAUTHORIZED'))    return '#f97316'
   if (t.includes('OBJECT_DETECTED')) return '#eab308'
+  if (t.includes('NO FACE'))         return '#f97316'
+  if (t.includes('LOOKING'))         return '#38bdf8'
   return '#94a3b8'
 }
 
