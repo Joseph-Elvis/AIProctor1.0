@@ -50,7 +50,7 @@ export default function Login() {
     <div className="page-center">
       <div className="card">
         <div className="logo">
-          <h1>AIProctor</h1>
+          <h1>ExamProctor</h1>
           <p>Intelligent Examination Monitoring System</p>
         </div>
 
