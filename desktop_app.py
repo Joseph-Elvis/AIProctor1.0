@@ -29,14 +29,14 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 # uncaught exceptions vanish with no trace. This writes everything to a
 # log file next to the script so a crash can actually be diagnosed.
 LOG_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "aiproctor_debug.log"
+    os.path.dirname(os.path.abspath(__file__)), "examproctor_debug.log"
 )
 logging.basicConfig(
     filename=LOG_FILE,
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
-logger = logging.getLogger("AIProctor")
+logger = logging.getLogger("ExamProctor")
 
 
 def _log_uncaught_exception(exc_type, exc_value, exc_tb):
@@ -239,6 +239,207 @@ class GlobalKeyFilter(QObject):
                 return True
 
         return False  # pass everything else through
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# OS-LEVEL GLOBAL KEYBOARD HOOK (Windows)
+# ═════════════════════════════════════════════════════════════════════════════
+# GlobalKeyFilter above only sees events inside THIS Qt application — once
+# a separate process (the grading app) has window focus, Qt's event filter
+# sees nothing at all. Real lockdown while a different app is in the
+# foreground requires an OS-level low-level keyboard hook. This uses
+# ctypes directly against the Win32 API (WH_KEYBOARD_LL) so no extra
+# dependency (e.g. pywin32) is required.
+#
+# Honest limitation: Ctrl+Alt+Del is a protected Secure Attention Sequence
+# in Windows and cannot be intercepted by any hook, including this one —
+# only a Group Policy / registry change (System Lockdown / Ctrl+Alt+Del
+# options) can affect that, and it's out of scope for an application.
+class WindowsGlobalKeyboardHook:
+    """
+    Installs a low-level Windows keyboard hook (WH_KEYBOARD_LL) that
+    blocks Alt+Tab, the Windows key, Alt+F4, Ctrl+Esc, and similar
+    task-switching shortcuts system-wide — regardless of which window
+    currently has focus. Only does anything on Windows; silently
+    becomes a no-op elsewhere (e.g. if ever tested on Linux/macOS).
+    """
+
+    WH_KEYBOARD_LL = 13
+    WM_KEYDOWN     = 0x0100
+    WM_SYSKEYDOWN  = 0x0104
+
+    VK_TAB      = 0x09
+    VK_ESCAPE   = 0x1B
+    VK_LWIN     = 0x5B
+    VK_RWIN     = 0x5C
+    VK_F4       = 0x73
+    VK_MENU     = 0x12  # Alt
+
+    def __init__(self, admin_unlock_callback=None):
+        self._hook_id = None
+        self._admin_unlock_callback = admin_unlock_callback
+        self._active = False
+
+        self._is_windows = sys.platform.startswith("win")
+        if not self._is_windows:
+            print("[OS_HOOK] Not running on Windows — global "
+                  "keyboard hook disabled (no-op)")
+            return
+
+        import ctypes
+        from ctypes import wintypes
+        self._ctypes   = ctypes
+        self._wintypes = wintypes
+        self._user32   = ctypes.windll.user32
+        self._kernel32 = ctypes.windll.kernel32
+
+        # Keep a reference to the callback so it isn't garbage collected
+        # (ctypes doesn't hold a strong reference on its own).
+        HOOKPROC = ctypes.WINFUNCTYPE(
+            ctypes.c_int, ctypes.c_int,
+            wintypes.WPARAM, wintypes.LPARAM
+        )
+        self._hook_proc = HOOKPROC(self._low_level_handler)
+
+    def start(self):
+        if not self._is_windows:
+            return
+        module_handle = self._kernel32.GetModuleHandleW(None)
+        self._hook_id = self._user32.SetWindowsHookExW(
+            self.WH_KEYBOARD_LL,
+            self._hook_proc,
+            module_handle,
+            0
+        )
+        if self._hook_id:
+            self._active = True
+            print("[OS_HOOK] Global keyboard hook installed")
+        else:
+            print("[OS_HOOK] Failed to install global keyboard hook "
+                  "— falling back to in-app lockdown only")
+
+    def stop(self):
+        if self._is_windows and self._hook_id:
+            self._user32.UnhookWindowsHookEx(self._hook_id)
+            self._hook_id = None
+            self._active  = False
+            print("[OS_HOOK] Global keyboard hook removed")
+
+    def _low_level_handler(self, n_code, w_param, l_param):
+        try:
+            if n_code == 0 and w_param in (
+                self.WM_KEYDOWN, self.WM_SYSKEYDOWN
+            ):
+                # l_param points to a KBDLLHOOKSTRUCT; first DWORD is vkCode
+                vk_code = self._ctypes.cast(
+                    l_param,
+                    self._ctypes.POINTER(self._ctypes.c_ulong)
+                )[0]
+
+                mods_down = self._user32.GetAsyncKeyState
+
+                alt_down = mods_down(self.VK_MENU) & 0x8000
+                ctrl_down = mods_down(0x11) & 0x8000  # VK_CONTROL
+                shift_down = mods_down(0x10) & 0x8000  # VK_SHIFT
+
+                # Admin unlock: Ctrl+Shift+Q still needs to reach the
+                # app, so let it through and notify via callback instead
+                # of blocking it here.
+                if (ctrl_down and shift_down and vk_code == 0x51  # 'Q'
+                        and self._admin_unlock_callback):
+                    self._admin_unlock_callback()
+                    return self._user32.CallNextHookEx(
+                        self._hook_id, n_code, w_param, l_param
+                    )
+
+                blocked = (
+                    (alt_down and vk_code == self.VK_TAB) or       # Alt+Tab
+                    (alt_down and vk_code == self.VK_F4) or        # Alt+F4
+                    (alt_down and vk_code == self.VK_ESCAPE) or    # Alt+Esc
+                    (ctrl_down and vk_code == self.VK_ESCAPE) or   # Ctrl+Esc
+                    vk_code == self.VK_LWIN or
+                    vk_code == self.VK_RWIN
+                )
+                if blocked:
+                    return 1  # non-zero = swallow the key entirely
+        except Exception as e:
+            print(f"[OS_HOOK ERROR] {type(e).__name__}: {e}")
+
+        return self._user32.CallNextHookEx(
+            self._hook_id, n_code, w_param, l_param
+        )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# LOCAL SUBMISSION LISTENER
+# ═════════════════════════════════════════════════════════════════════════════
+# The grading app runs as a separate process and submits internally in
+# its own UI — ExamProctor has no visibility into that unless the grading
+# app tells it. This runs a minimal local HTTP server (stdlib only, no
+# new dependency) that the grading app calls when the student submits:
+#
+#   POST http://127.0.0.1:9091/submit
+#   Body (JSON, optional): {"registration_number": "20211266672"}
+#
+# Runs in a background thread; the actual exam-ending logic is marshaled
+# onto the Qt main thread via a signal, since HTTP requests arrive on a
+# different thread and Qt widgets can only be touched from the main one.
+class SubmissionListener(QObject):
+    submission_received = pyqtSignal(dict)
+
+    def __init__(self, port=9091):
+        super().__init__()
+        self.port   = port
+        self.server = None
+        self.thread = None
+
+    def start(self):
+        import http.server
+        import json as _json
+
+        outer = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                if self.path != "/submit":
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                try:
+                    length = int(self.headers.get("Content-Length", 0))
+                    body   = self.rfile.read(length) if length else b"{}"
+                    data   = _json.loads(body or b"{}")
+                except Exception:
+                    data = {}
+
+                outer.submission_received.emit(data)
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"status": "received"}')
+
+            def log_message(self, fmt, *args):
+                pass  # suppress default request logging noise
+
+        try:
+            self.server = http.server.HTTPServer(
+                ("127.0.0.1", self.port), Handler
+            )
+            self.thread = threading.Thread(
+                target=self.server.serve_forever, daemon=True
+            )
+            self.thread.start()
+            print(f"[SUBMIT_LISTENER] Listening on "
+                  f"http://127.0.0.1:{self.port}/submit")
+        except Exception as e:
+            print(f"[SUBMIT_LISTENER ERROR] Failed to start: {e}")
+
+    def stop(self):
+        if self.server:
+            self.server.shutdown()
+            self.server = None
+            print("[SUBMIT_LISTENER] Stopped")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -809,7 +1010,7 @@ class LoadingScreen(QWidget):
         self.camera_check_timer.start(1000)
 
     def setup_ui(self):
-        self.setWindowTitle("AIProctor — Starting")
+        self.setWindowTitle("ExamProctor — Starting")
         self.setFixedSize(520, 320)
         self.setStyleSheet("background: #0f172a;")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -819,7 +1020,7 @@ class LoadingScreen(QWidget):
         layout.setSpacing(20)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        logo = QLabel("AIProctor")
+        logo = QLabel("ExamProctor")
         logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo.setStyleSheet(
             "color: #38bdf8; font-size: 32px; font-weight: 800;"
@@ -944,6 +1145,7 @@ class ExamWindow(QMainWindow):
         self.time_left      = EXAM_DURATION
         self.exam_active    = True
         self.key_filter     = None
+        self.os_hook        = None
         # Tracks consecutive repeats of the same violation type, so
         # a prolonged behaviour (e.g. looking away for a long stretch)
         # escalates in weight instead of costing the same each time.
@@ -955,7 +1157,7 @@ class ExamWindow(QMainWindow):
         self.start_timer()
 
     def setup_ui(self):
-        self.setWindowTitle("AIProctor — Examination")
+        self.setWindowTitle("ExamProctor — Examination")
         self.showFullScreen()
         self.setStyleSheet("background: #0f172a;")
 
@@ -981,7 +1183,7 @@ class ExamWindow(QMainWindow):
         tb = QHBoxLayout(topbar)
         tb.setContentsMargins(20, 0, 20, 0)
 
-        title = QLabel("AIProctor — Secure Examination")
+        title = QLabel("ExamProctor — Secure Examination")
         title.setStyleSheet(
             "color: #38bdf8; font-size: 13px; font-weight: 700;"
         )
@@ -1068,17 +1270,32 @@ class ExamWindow(QMainWindow):
         self.flag_banner_timer.setSingleShot(True)
         self.flag_banner_timer.timeout.connect(self._hide_flag_banner)
 
-        # ── Exam browser ──────────────────────────────────────────────────
-        exam_url = self.student_data.get("exam_url")
-        if exam_url:
-            self.browser = QWebEngineView()
-            self.browser.setUrl(QUrl(exam_url))
+        # ── Exam content: embedded browser ───────────────────────────────
+        # NOTE: the separate-grading-app launch path (subprocess.Popen)
+        # is paused for now while the team decides on a better approach
+        # for that integration — see _launch_grading_app below, which is
+        # kept but no longer called. For now, exam_url is always loaded
+        # in the embedded browser, same as before that work started.
+        # This also handles a local file path (e.g. quiz.html) directly,
+        # converting it to a proper file:// URL instead of passing a raw
+        # Windows path to QUrl.
+        self.browser         = None
+        self.grading_process = None
+        exam_target = self.student_data.get("exam_url")
 
-            # Disable right-click context menu
+        if exam_target:
+            self.browser = QWebEngineView()
+            if exam_target.lower().startswith(
+                ("http://", "https://", "file://")
+            ):
+                self.browser.setUrl(QUrl(exam_target))
+            else:
+                self.browser.setUrl(QUrl.fromLocalFile(exam_target))
             self.browser.setContextMenuPolicy(
                 Qt.ContextMenuPolicy.NoContextMenu
             )
             layout.addWidget(self.browser)
+
         else:
             no_url = QLabel(
                 "No exam URL assigned.\n"
@@ -1087,6 +1304,16 @@ class ExamWindow(QMainWindow):
             no_url.setAlignment(Qt.AlignmentFlag.AlignCenter)
             no_url.setStyleSheet("color: #64748b; font-size: 16px;")
             layout.addWidget(no_url)
+
+        # ── Submission listener ──────────────────────────────────────────
+        # Lets the grading app tell ExamProctor the student has submitted,
+        # so the exam ends cleanly even though submission happens inside
+        # a separate process's own UI.
+        self.submission_listener = SubmissionListener(port=9091)
+        self.submission_listener.submission_received.connect(
+            self._on_external_submission
+        )
+        self.submission_listener.start()
 
         # ── Camera overlay (bottom right) ─────────────────────────────────
         self.cam_overlay = QLabel(self)
@@ -1111,8 +1338,12 @@ class ExamWindow(QMainWindow):
 
     def setup_lockdown(self):
         """
-        Installs global keyboard filter at application level.
-        This catches keys even when QWebEngineView has focus.
+        Installs two layers of keyboard lockdown:
+        1. GlobalKeyFilter — Qt-level, catches keys within this app
+           (including inside QWebEngineView).
+        2. WindowsGlobalKeyboardHook — OS-level, catches keys even when
+           a SEPARATE process (e.g. a launched grading app) has window
+           focus, which the Qt-level filter cannot see at all.
         """
         self.key_filter = GlobalKeyFilter(self)
         self.key_filter.admin_shortcut_pressed.connect(
@@ -1120,6 +1351,57 @@ class ExamWindow(QMainWindow):
         )
         QApplication.instance().installEventFilter(self.key_filter)
         print("[LOCKDOWN] Global key filter installed")
+
+        self.os_hook = WindowsGlobalKeyboardHook(
+            admin_unlock_callback=self.prompt_admin_unlock
+        )
+        self.os_hook.start()
+
+    def _launch_grading_app(self, exe_path):
+        """
+        Launches the separate grading application as a subprocess,
+        passing the student's registration number so it can identify
+        which candidate/session this is. ExamProctor's own toolbar stays
+        WindowStaysOnTopHint above it; monitoring continues unaffected
+        since the vision thread watches the camera, not the screen.
+        """
+        import subprocess
+        try:
+            # `.get(key, default)` only falls back when the key is
+            # MISSING — if the key exists but its value is literally
+            # None (e.g. exam_id not yet assigned for this student),
+            # .get() returns that None as-is, which subprocess.Popen
+            # then rejects since every arg must be a string. `or ""`
+            # correctly treats both "missing" and "explicitly None"
+            # the same way.
+            reg_num = self.student_data.get("registration_number") or ""
+            exam_id = self.student_data.get("exam_id") or ""
+            self.grading_process = subprocess.Popen([
+                str(exe_path),
+                "--student", str(reg_num),
+                "--exam-id", str(exam_id),
+            ])
+            print(f"[GRADING_APP] Launched: {exe_path} "
+                  f"(pid={self.grading_process.pid})")
+        except Exception as e:
+            print(f"[GRADING_APP ERROR] Failed to launch {exe_path}: {e}")
+            QMessageBox.critical(
+                self, "Launch Failed",
+                f"Could not start the exam application:\n{e}\n\n"
+                f"Please inform your supervisor."
+            )
+
+    def _on_external_submission(self, data):
+        """
+        Called when the grading app POSTs to the local submission
+        listener signalling the student has submitted. Runs on the Qt
+        main thread (the signal marshals it here from the HTTP
+        server's background thread) so it's safe to touch UI/end_exam.
+        """
+        reg = data.get("registration_number")
+        print(f"[SUBMIT_LISTENER] Submission signal received "
+              f"(registration_number={reg!r})")
+        self.end_exam("SUBMITTED")
 
     def on_camera_frame(self, frame):
         """Receives frame from CameraManager for overlay display."""
@@ -1395,6 +1677,27 @@ class ExamWindow(QMainWindow):
         if self.key_filter:
             QApplication.instance().removeEventFilter(self.key_filter)
 
+        # Stop OS-level keyboard hook
+        if getattr(self, "os_hook", None):
+            self.os_hook.stop()
+
+        # Stop submission listener
+        if getattr(self, "submission_listener", None):
+            self.submission_listener.stop()
+
+        # If a separate grading app was launched and the exam is ending
+        # for a reason OTHER than its own submission signal (time up,
+        # admin exit, integrity violation), close it too — it shouldn't
+        # keep running once ExamProctor has ended the session.
+        if getattr(self, "grading_process", None):
+            if self.grading_process.poll() is None:  # still running
+                try:
+                    self.grading_process.terminate()
+                    print("[GRADING_APP] Terminated on exam end "
+                          f"(reason={reason})")
+                except Exception as e:
+                    print(f"[GRADING_APP ERROR] Failed to terminate: {e}")
+
         # Unsubscribe from camera
         self.camera_manager.unsubscribe(self.on_camera_frame)
 
@@ -1637,7 +1940,7 @@ class LoginWindow(QWidget):
             self.camera_label.setPixmap(pix)
 
     def setup_ui(self):
-        self.setWindowTitle("AIProctor — Exam Login")
+        self.setWindowTitle("ExamProctor — Exam Login")
         self.setFixedSize(940, 600)
         self.setStyleSheet("""
             QWidget {
@@ -1736,7 +2039,7 @@ class LoginWindow(QWidget):
         rl.setSpacing(0)
         rl.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        logo = QLabel("AIProctor")
+        logo = QLabel("ExamProctor")
         logo.setStyleSheet(
             "color: #38bdf8; font-size: 28px; font-weight: 800;"
         )
@@ -1988,11 +2291,11 @@ class LoginWindow(QWidget):
 # ═════════════════════════════════════════════════════════════════════════════
 # MAIN APPLICATION
 # ═════════════════════════════════════════════════════════════════════════════
-class AIProctorApp:
+class ExamProctorApp:
 
     def __init__(self):
         self.app            = QApplication(sys.argv)
-        self.app.setApplicationName("AIProctor")
+        self.app.setApplicationName("ExamProctor")
         self.camera_manager = CameraManager()
         self.login_window   = None
         self.loading_screen = None
@@ -2120,5 +2423,5 @@ if __name__ == "__main__":
             sys.executable, "-m", "pip", "install", "PyQt6-WebEngine"
         ])
 
-    app = AIProctorApp()
+    app = ExamProctorApp()
     app.run()

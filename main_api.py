@@ -56,7 +56,7 @@ manager = ConnectionManager()
 
 # ── FastAPI App ────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="AIProctor API",
+    title="ExamProctor API",
     description="Real-time exam proctoring system",
     version="2.0.0"
 )
@@ -105,7 +105,7 @@ class DeletionNotice(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "system":  "AIProctor API",
+        "system":  "ExamProctor API",
         "version": "2.0.0",
         "status":  "running"
     }
@@ -424,7 +424,7 @@ async def download_report(registration_number: str):
     pdf_bytes = generate_report(student, alerts)
 
     filename = (
-        f"AIProctor_Report_"
+        f"ExamProctor_Report_"
         f"{registration_number.replace('/', '_')}.pdf"
     )
 

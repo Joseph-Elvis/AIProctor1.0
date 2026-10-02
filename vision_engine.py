@@ -291,7 +291,7 @@ def draw_status_box(frame, label, alert, detections):
                 (10, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.65, colour, 2)
     cv2.putText(frame, f"Objects:    {', '.join(detections) if detections else 'None'}",
                 (10, 88), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 200, 255), 2)
-    cv2.putText(frame, "AIProctor v1.0  |  Press Q to quit",
+    cv2.putText(frame, "ExamProctor v1.0  |  Press Q to quit",
                 (10, 118), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (180, 180, 180), 1)
 
 
@@ -309,7 +309,7 @@ def main():
     print("Step 2: Camera opened. Starting main loop...")
 
     print("=" * 55)
-    print("  AIProctor Vision Engine v1.0")
+    print("  ExamProctor Vision Engine v1.0")
     print("  Monitoring started. Press Q to quit.")
     print("=" * 55)
 
@@ -439,7 +439,7 @@ def main():
                 print(f"[SENT TO DB] {violation}")
 
         # ── 7. Display ────────────────────────────────────────────────────────
-        cv2.imshow("AIProctor - Vision Engine v1.0", frame)
+        cv2.imshow("ExamProctor - Vision Engine v1.0", frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -448,7 +448,7 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
     face_landmarker.close()
-    print("\nAIProctor session ended.")
+    print("\nExamProctor session ended.")
 
 
 # ═════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,154 @@
+2026-08-31 04:26:14,162 [DEBUG] matplotlib data path: C:\python_install\Lib\site-packages\matplotlib\mpl-data
+2026-08-31 04:26:14,223 [DEBUG] CONFIGDIR=C:\Users\hp\.matplotlib
+2026-08-31 04:26:14,227 [DEBUG] interactive is False
+2026-08-31 04:26:14,227 [DEBUG] platform is win32
+2026-08-31 04:26:14,320 [DEBUG] CACHEDIR=C:\Users\hp\.matplotlib
+2026-08-31 04:26:14,352 [DEBUG] Using fontManager instance from C:\Users\hp\.matplotlib\fontlist-v390.json
+2026-08-31 04:27:57,961 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:27:58,089 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66955
+2026-08-31 04:29:26,583 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:29:26,654 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-08-31 04:29:31,604 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:29:31,610 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-08-31 04:30:04,884 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:30:04,891 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-08-31 04:30:04,893 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:30:04,922 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-08-31 04:30:05,301 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-08-31 04:30:19,076 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:30:19,085 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66957
+2026-08-31 04:30:54,364 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:30:54,375 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-08-31 04:31:00,663 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:31:00,667 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-08-31 04:31:00,669 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:31:00,679 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-08-31 04:31:00,969 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-08-31 04:40:08,105 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:40:08,112 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66952
+2026-08-31 04:40:36,300 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:40:36,307 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-08-31 04:40:36,310 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:40:36,324 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-08-31 04:40:36,566 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-08-31 04:41:38,091 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:41:38,098 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66952
+2026-08-31 04:42:55,341 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:42:55,355 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-08-31 04:42:55,360 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-08-31 04:42:55,384 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-08-31 04:42:55,617 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-09-10 15:04:03,022 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:04:03,176 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66952
+2026-09-10 15:04:07,755 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:04:07,769 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-10 15:04:19,620 [DEBUG] matplotlib data path: C:\python_install\Lib\site-packages\matplotlib\mpl-data
+2026-09-10 15:04:19,694 [DEBUG] CONFIGDIR=C:\Users\hp\.matplotlib
+2026-09-10 15:04:19,698 [DEBUG] interactive is False
+2026-09-10 15:04:19,698 [DEBUG] platform is win32
+2026-09-10 15:04:19,794 [DEBUG] CACHEDIR=C:\Users\hp\.matplotlib
+2026-09-10 15:04:19,821 [DEBUG] Using fontManager instance from C:\Users\hp\.matplotlib\fontlist-v390.json
+2026-09-10 15:05:21,365 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:05:21,421 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-10 15:05:31,409 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:05:31,417 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-10 15:05:36,445 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:05:36,451 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-10 15:05:43,319 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:05:43,328 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-10 15:06:01,783 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:06:01,821 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-10 15:06:06,532 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:06:06,599 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-10 15:06:06,605 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-10 15:06:06,665 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-09-12 15:01:23,855 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:01:24,042 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 404 42
+2026-09-12 15:01:25,781 [DEBUG] matplotlib data path: C:\python_install\Lib\site-packages\matplotlib\mpl-data
+2026-09-12 15:01:25,870 [DEBUG] CONFIGDIR=C:\Users\hp\.matplotlib
+2026-09-12 15:01:25,873 [DEBUG] interactive is False
+2026-09-12 15:01:25,874 [DEBUG] platform is win32
+2026-09-12 15:01:26,006 [DEBUG] CACHEDIR=C:\Users\hp\.matplotlib
+2026-09-12 15:01:26,039 [DEBUG] Using fontManager instance from C:\Users\hp\.matplotlib\fontlist-v390.json
+2026-09-12 15:01:30,305 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:01:30,366 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66952
+2026-09-12 15:02:16,861 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:02:16,968 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-12 15:02:25,495 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:02:25,505 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-12 15:03:13,758 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:03:13,769 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-12 15:03:28,675 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:03:28,684 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-12 15:04:08,241 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:04:08,258 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-12 15:04:08,260 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-12 15:04:08,313 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-09-12 15:04:08,623 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-09-29 18:56:03,545 [DEBUG] matplotlib data path: C:\python_install\Lib\site-packages\matplotlib\mpl-data
+2026-09-29 18:56:03,597 [DEBUG] CONFIGDIR=C:\Users\hp\.matplotlib
+2026-09-29 18:56:03,600 [DEBUG] interactive is False
+2026-09-29 18:56:03,600 [DEBUG] platform is win32
+2026-09-29 18:56:03,680 [DEBUG] CACHEDIR=C:\Users\hp\.matplotlib
+2026-09-29 18:56:03,700 [DEBUG] Using fontManager instance from C:\Users\hp\.matplotlib\fontlist-v390.json
+2026-09-29 18:58:23,271 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:58:23,361 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 401 31
+2026-09-29 18:58:33,833 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:58:33,867 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66952
+2026-09-29 18:58:58,147 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:58:58,230 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 18:59:03,310 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:59:03,316 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 18:59:08,573 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:59:08,580 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 18:59:13,619 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:59:13,626 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 18:59:15,633 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:59:15,642 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 18:59:15,897 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:59:15,908 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-29 18:59:15,911 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 18:59:15,922 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-09-29 19:01:44,419 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:01:44,427 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66950
+2026-09-29 19:02:34,978 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:02:34,987 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:02:45,094 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:02:45,107 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:02:50,558 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:02:50,564 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:02:57,539 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:02:57,555 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:03:03,937 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:03,947 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:03:12,779 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:12,786 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:03:12,809 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:12,843 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-29 19:03:12,845 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:12,852 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-09-29 19:03:40,059 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:40,065 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66950
+2026-09-29 19:03:50,748 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:50,756 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:03:55,795 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:03:55,803 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:00,184 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:00,191 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:05,207 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:05,218 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:10,303 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:10,310 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:11,018 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:11,027 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:17,191 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:17,198 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:21,271 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:21,278 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:26,578 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:26,586 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 200 56
+2026-09-29 19:04:26,728 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:26,733 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-09-29 19:04:26,736 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-09-29 19:04:26,750 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-09-29 19:04:27,077 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
