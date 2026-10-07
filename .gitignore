@@ -2,6 +2,9 @@ __pycache__/
 aiproctor_env/
 venv/
 env/
+.env
+.env.*
+!.env.example
 
 *.pyc
 *.zip

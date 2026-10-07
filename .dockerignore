@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+__pycache__/
+*.py[cod]
+**/__pycache__/
+**/node_modules/
+aiproctor-web/dist/
+aiproctor-web/.vite/
+aiproctor_env/
+.vscode/
+.idea/
+*.log
+*.zip

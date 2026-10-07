@@ -1,0 +1,79 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: aiproctor-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-change_me}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-aiproctor}
+      MONGO_APP_USER: ${MONGO_APP_USER:-aiproctor}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-change_me}
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongo/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - aiproctor-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aiproctor-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: ${PORT:-8000}
+      MONGO_URL: ${MONGO_URL:-mongodb://aiproctor:change_me@mongo:27017/aiproctor?authSource=aiproctor}
+      MONGO_DB: ${MONGO_DB:-aiproctor}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://frontend}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change_me}
+      MONGO_APP_USER: ${MONGO_APP_USER:-aiproctor}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:-change_me}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - aiproctor-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\" || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 25s
+
+  frontend:
+    image: node:20-alpine
+    container_name: aiproctor-frontend
+    working_dir: /app
+    command: sh -lc "npm install && npm run build && npx vite preview --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./aiproctor-web:/app
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    networks:
+      - aiproctor-network
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  aiproctor-network:
+    driver: bridge
+
+volumes:
+  mongo-data:

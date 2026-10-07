@@ -2,8 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-const API    = 'http://127.0.0.1:8000'
-const WS_URL = 'ws://127.0.0.1:8000/ws/alerts'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const WS_URL = `${API.replace(/^http/, 'ws')}/ws/alerts`
 
 function calcScore(alerts) {
   if (!alerts || alerts.length === 0) return 100

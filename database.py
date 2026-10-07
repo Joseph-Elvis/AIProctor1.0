@@ -1,13 +1,14 @@
+import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
 
 # ── MongoDB Connection ─────────────────────────────────────────────────────
-MONGO_URL        = "mongodb://localhost:27017"
-DATABASE_NAME    = "aiproctor"
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+DATABASE_NAME = os.getenv("MONGO_DB", "aiproctor")
 
-client       = AsyncIOMotorClient(MONGO_URL)
-db           = client[DATABASE_NAME]
-alerts_col   = db["alerts"]
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DATABASE_NAME]
+alerts_col = db["alerts"]
 students_col = db["students"]
 removal_notices_col = db["removal_notices"]
 

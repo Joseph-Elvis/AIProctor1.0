@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import os
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -14,7 +15,7 @@ from database import (
     register_student, get_student, get_all_students,
     update_student_status, delete_student,
     remove_student_with_notice, get_removal_notice,
-    students_col, alerts_col
+    students_col, alerts_col, db
 )
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -61,9 +62,18 @@ app = FastAPI(
     version="2.0.0"
 )
 
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost,http://127.0.0.1,http://frontend"
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -100,8 +110,17 @@ class DeletionNotice(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# ROOT
+# HEALTH / ROOT
 # ═══════════════════════════════════════════════════════════════════════════
+@app.get("/health")
+async def health():
+    try:
+        await db.command("ping")
+        return {"status": "ok", "database": "mongodb"}
+    except Exception as exc:  # pragma: no cover - runtime dependency check
+        raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}") from exc
+
+
 @app.get("/")
 async def root():
     return {
@@ -202,10 +221,12 @@ async def websocket_alerts(websocket: WebSocket):
 # ═══════════════════════════════════════════════════════════════════════════
 @app.post("/admin/login")
 async def admin_login(credentials: AdminLogin):
-    if credentials.username == "admin" and credentials.password == "admin123":
+    admin_username = os.getenv("ADMIN_USERNAME", "admin")
+    admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+    if credentials.username == admin_username and credentials.password == admin_password:
         return {
             "status":   "success",
-            "username": "admin",
+            "username": admin_username,
             "role":     "admin"
         }
     raise HTTPException(status_code=401, detail="Invalid admin credentials")
@@ -216,20 +237,47 @@ async def admin_login(credentials: AdminLogin):
 # ═══════════════════════════════════════════════════════════════════════════
 @app.post("/students/register")
 async def register_new_student(
-    full_name:           str        = Form(...),
-    registration_number: str        = Form(...),
-    password:            str        = Form(...),
-    department:          str        = Form(...),
-    passport_photo:      UploadFile = File(...)
+    request: Request,
+    full_name: str = Form(None),
+    registration_number: str = Form(None),
+    password: str = Form(None),
+    department: str = Form(None),
+    passport_photo: UploadFile = File(None),
 ):
     """
     Student self-registration from the web portal.
     Admin assigns exam_id and exam_url after approval.
+    Accepts both multipart/form-data and JSON payloads for compatibility.
     """
-    photo_bytes  = await passport_photo.read()
-    photo_base64 = base64.b64encode(photo_bytes).decode("utf-8")
-    photo_mime   = passport_photo.content_type
+    photo_bytes = None
+    photo_mime = "image/jpeg"
 
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        payload = await request.json()
+        full_name = payload.get("full_name") or full_name
+        registration_number = payload.get("registration_number") or registration_number
+        password = payload.get("password") or password
+        department = payload.get("department") or department
+        passport_photo_value = payload.get("passport_photo")
+        photo_mime = payload.get("passport_mime") or photo_mime
+
+        if passport_photo_value:
+            if passport_photo_value.startswith("data:"):
+                passport_photo_value = passport_photo_value.split(",", 1)[1]
+            photo_bytes = base64.b64decode(passport_photo_value)
+
+    if not full_name or not registration_number or not password or not department:
+        raise HTTPException(status_code=400, detail="Missing required student registration fields")
+
+    if passport_photo is not None:
+        photo_bytes = await passport_photo.read()
+        photo_mime = passport_photo.content_type or photo_mime
+
+    if photo_bytes is None:
+        raise HTTPException(status_code=400, detail="Passport photo is required")
+
+    photo_base64 = base64.b64encode(photo_bytes).decode("utf-8")
     hashed_password = hashlib.sha256(password.encode()).hexdigest()
 
     student_data = {
@@ -372,9 +420,9 @@ async def remove_student(registration_number: str, body: DeletionNotice):
 if __name__ == "__main__":
     uvicorn.run(
         "main_api:app",
-        host="127.0.0.1",
-        port=8000,
-        reload= False
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8000")),
+        reload=False
     )
 
 # ═══════════════════════════════════════════════════════════════════════════

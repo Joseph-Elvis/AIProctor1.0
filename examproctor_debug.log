@@ -152,3 +152,26 @@
 2026-09-29 19:04:26,736 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
 2026-09-29 19:04:26,750 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
 2026-09-29 19:04:27,077 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-10-07 18:27:47,554 [DEBUG] matplotlib data path: C:\python_install\Lib\site-packages\matplotlib\mpl-data
+2026-10-07 18:27:47,671 [DEBUG] CONFIGDIR=C:\Users\hp\.matplotlib
+2026-10-07 18:27:47,677 [DEBUG] interactive is False
+2026-10-07 18:27:47,677 [DEBUG] platform is win32
+2026-10-07 18:27:47,833 [DEBUG] CACHEDIR=C:\Users\hp\.matplotlib
+2026-10-07 18:27:47,897 [DEBUG] Using fontManager instance from C:\Users\hp\.matplotlib\fontlist-v390.json
+2026-10-07 18:33:16,962 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-10-07 18:33:17,487 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66950
+2026-10-07 18:33:22,891 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-10-07 18:33:22,949 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-10-07 18:34:13,228 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-10-07 18:34:13,235 [DEBUG] http://127.0.0.1:8000 "POST /alerts HTTP/1.1" 422 115
+2026-10-07 18:34:13,239 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-10-07 18:34:13,264 [DEBUG] http://127.0.0.1:8000 "PATCH /students/20211266671/status HTTP/1.1" 200 20
+2026-10-07 18:34:13,577 [ERROR] [LIVE STATUS ERROR] RuntimeError: wrapped C/C++ object of type QLabel has been deleted
+2026-10-07 20:10:20,013 [DEBUG] matplotlib data path: C:\python_install\Lib\site-packages\matplotlib\mpl-data
+2026-10-07 20:10:20,051 [DEBUG] CONFIGDIR=C:\Users\hp\.matplotlib
+2026-10-07 20:10:20,054 [DEBUG] interactive is False
+2026-10-07 20:10:20,054 [DEBUG] platform is win32
+2026-10-07 20:10:20,142 [DEBUG] CACHEDIR=C:\Users\hp\.matplotlib
+2026-10-07 20:10:20,174 [DEBUG] Using fontManager instance from C:\Users\hp\.matplotlib\fontlist-v390.json
+2026-10-07 20:10:25,121 [DEBUG] Starting new HTTP connection (1): 127.0.0.1:8000
+2026-10-07 20:10:25,252 [DEBUG] http://127.0.0.1:8000 "POST /students/login HTTP/1.1" 200 66952
